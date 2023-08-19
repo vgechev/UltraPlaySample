@@ -1,10 +1,11 @@
 ﻿using System.Text;
 using System.Xml.Serialization;
 using UltraPlaySample.Models;
+using UltraPlaySample.Services.Interfaces;
 
 namespace UltraPlaySample.Services
 {
-	public class XmlDataService : IXmlDataService
+    public class XmlDataService : IXmlDataService
 	{
 		private readonly AppDbContext dbContext;
 		private readonly ILogger<XmlDataService> logger;

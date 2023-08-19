@@ -32,7 +32,7 @@ namespace UltraPlaySample
 				.Property(x => x.SpecialBetValue)
 				.HasConversion(
 					value => value == 0 ? null : value,
-					value => value == null ? 0 : value
+					value => value
 				);
 		}
 	}

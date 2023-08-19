@@ -4,7 +4,7 @@ using UltraPlaySample.Services.Interfaces;
 
 namespace UltraPlaySample
 {
-	public class Program
+    public class Program
 	{
 		public static void Main(string[] args)
 		{

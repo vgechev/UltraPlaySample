@@ -1,8 +1,9 @@
 ﻿using UltraPlaySample.Models;
+using UltraPlaySample.Services.Interfaces;
 
 namespace UltraPlaySample.Services
 {
-	public class TimedHostedService : IHostedService, IDisposable
+    public class TimedHostedService : IHostedService, IDisposable
 	{
 		private readonly ILogger<TimedHostedService> logger;
 		private readonly IServiceScopeFactory factory;
