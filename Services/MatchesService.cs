@@ -19,8 +19,7 @@ namespace UltraPlaySample.Services
 				.OrderByDescending(m => m.StartDate)
 				.Select(m => new GetUpcomingMatchResponseModel(m.Name, m.StartDate, m.Bets
 					.Where(b => previewBetNames.Contains(b.Name))
-					.Select(b => new BetDto(b.Name, b.IsLive, b.Odds
-						.Select(o => new OddDto(o.Name, o.SpecialBetValue, o.Value)).ToArray()))
+					.Select(b => new BetDto(b.Name, b.IsLive, GetOddsDtosFromEntities(b.Odds)))
 					.ToArray()))
 				.ToArrayAsync();
 
@@ -37,11 +36,14 @@ namespace UltraPlaySample.Services
 		public Task<GetMatchResponseModel> GetMatchById(int id) =>
 			dbContext.Matches.Where(m => m.Id == id)
 				.Select(m => new GetMatchResponseModel(m.Name, m.StartDate, m.Bets
-					.Select(b => new BetDto(b.Name, b.IsLive, b.Odds
-						.Select(o => new OddDto(o.Name, o.SpecialBetValue, o.Value)).ToArray()))
-					.ToArray()))
+					.Select(b => new BetDto(b.Name, b.IsLive, GetOddsDtosFromEntities(b.Odds))).ToArray()))
 				.FirstOrDefaultAsync();
+
+		private static OddDto[] GetOddsDtosFromEntities(ICollection<Odd> odds) =>
+			odds.Select(o => new OddDto(o.Name, o.SpecialBetValue, o.Value)).ToArray();
 	}
+
+
 
 	public record GetUpcomingMatchResponseModel(string Name, DateTime StartDate, BetDto[] Bets);
 	public record GetMatchResponseModel(string Name, DateTime StartDate, BetDto[] Bets);

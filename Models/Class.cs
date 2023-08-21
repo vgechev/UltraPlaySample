@@ -8,13 +8,13 @@ namespace UltraPlaySample.Models
 	public class XmlSports
 	{
 		[XmlElement("Sport")]
-		public Sport[] Sports { get; set; }
+		public XmlSport[] Sports { get; set; }
 
 		[XmlAttribute("CreateDate")]
 		public DateTime CreateDate { get; set; }
 	}
 
-	public class Sport
+	public class XmlSport
 	{
 		[XmlAttribute("ID")]
 		public int Id { get; set; }
@@ -23,10 +23,10 @@ namespace UltraPlaySample.Models
 		public string Name { get; set; }
 
 		[XmlElement("Event")]
-		public Event[] Events { get; set; }
+		public XmlEvent[] Events { get; set; }
 	}
 
-	public class Event
+	public class XmlEvent
 	{
 		[XmlAttribute("Name")]
 		public string Name { get; set; }
@@ -41,10 +41,10 @@ namespace UltraPlaySample.Models
 		public int CategoryID { get; set; }
 
 		[XmlElement("Match")]
-		public Match[] Matches { get; set; }
+		public XmlMatch[] Matches { get; set; }
 	}
 
-	public class Match
+	public class XmlMatch
 	{
 		[XmlAttribute("Name")]
 		public string Name { get; set; }
@@ -59,10 +59,10 @@ namespace UltraPlaySample.Models
 		public MatchTypesEnum MatchType { get; set; }
 
 		[XmlElement("Bet")]
-		public Bet[] Bets { get; set; }
+		public XmlBet[] Bets { get; set; }
 	}
 
-	public class Bet
+	public class XmlBet
 	{
 		[XmlAttribute("Name")]
 		public string Name { get; set; }
@@ -73,10 +73,10 @@ namespace UltraPlaySample.Models
 		public bool IsLive { get; set; }
 
 		[XmlElement("Odd")]
-		public Odd[] Odds { get; set; }
+		public XmlOdd[] Odds { get; set; }
 	}
 
-	public class Odd
+	public class XmlOdd
 	{
 		[XmlAttribute("Name")]
 		public string Name { get; set; }

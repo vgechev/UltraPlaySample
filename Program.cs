@@ -16,7 +16,7 @@ namespace UltraPlaySample
 				.AddHttpClient()
 				.AddDbContext<AppDbContext>(o => {
 					o.UseSqlServer(builder.Configuration.GetConnectionString("Database"));
-					o.UseLoggerFactory(LoggerFactory.Create(b => b.AddFilter(level => level != LogLevel.Information)));
+					//o.UseLoggerFactory(LoggerFactory.Create(b => b.AddFilter(level => level != LogLevel.Information)));
 				})
 				.AddScoped<IXmlDataService, XmlDataService>()
 				.AddScoped<IMatchesService, MatchesService>()

@@ -1,15 +1,21 @@
 ﻿using System.Text;
 using System.Xml.Serialization;
+using Microsoft.EntityFrameworkCore;
 using UltraPlaySample.Models;
 using UltraPlaySample.Services.Interfaces;
 
 namespace UltraPlaySample.Services
 {
-    public class XmlDataService : IXmlDataService
+	public class XmlDataService : IXmlDataService
 	{
 		private readonly AppDbContext dbContext;
 		private readonly ILogger<XmlDataService> logger;
 		private readonly IHttpClientFactory httpClientFactory;
+		private Sport[] dbSports;
+		private Event[] dbEvents;
+		private Match[] dbMatches;
+		private Bet[] dbBets;
+		private Odd[] dbOdds;
 
 		public XmlDataService(AppDbContext dbContext, ILogger<XmlDataService> logger, IHttpClientFactory httpClientFactory)
 		{
@@ -36,60 +42,120 @@ namespace UltraPlaySample.Services
 			return (XmlSports)xmlSerializer.Deserialize(reader);
 		}
 
-		public async Task ProcessDataAndSaveToDatabase(Models.Sport[] sports)
+		private Sport CreateSport(XmlSport xmlSport)
 		{
-			// TODO: Get ids for each type with a single query and loop through each xml type and check if the Id exists in the database.
-			// If yes, then update, otherwise insert.
-			// The downside is - we will have a loop for every relation (currently 5), imagine if we add more
-			// Maybe think of something else?
-			await ClearDatabase();
+			Sport sport = dbSports.FirstOrDefault(s => s.Id == xmlSport.Id) ?? new();
 
-			Sport[] sportEntities = sports.Select(xmlSport => new Sport
-			{
-				Id = xmlSport.Id,
-				Name = xmlSport.Name,
-				Events = xmlSport.Events.Select(xmlEvent => new Event
-				{
-					Id = xmlEvent.Id,
-					Name = xmlEvent.Name,
-					IsLive = xmlEvent.IsLive,
-					CategoryId = xmlEvent.CategoryID,
-					Matches = xmlEvent.Matches.Select(xmlMatch => new Match
-					{
-						Id = xmlMatch.Id,
-						Name = xmlMatch.Name,
-						StartDate = xmlMatch.StartDate,
-						MatchType = xmlMatch.MatchType,
-						Bets = xmlMatch.Bets.Select(xmlBet => new Bet
-						{
-							Id = xmlBet.Id,
-							Name = xmlBet.Name,
-							IsLive = xmlBet.IsLive,
-							Odds = xmlBet.Odds.Select(xmlOdd => new Odd
-							{
-								Id = xmlOdd.Id,
-								Name = xmlOdd.Name,
-								Value = xmlOdd.Value,
-								SpecialBetValue = xmlOdd.SpecialBetValue
-							}).ToArray(),
-						}).ToArray()
-					}).ToArray()
-				}).ToArray()
-			}).ToArray();
+			sport.Id = xmlSport.Id;
+			sport.Name = xmlSport.Name;
+			sport.Events = CreateEvents(xmlSport.Events);
 
-			dbContext.Sports.AddRange(sportEntities);
-			await dbContext.SaveChangesAsync();
+			return sport;
 		}
 
-		private async Task ClearDatabase()
+		private List<Event> CreateEvents(IEnumerable<XmlEvent> xmlEvents)
 		{
-			dbContext.Sports.RemoveRange(dbContext.Sports);
-			dbContext.Events.RemoveRange(dbContext.Events);
-			dbContext.Matches.RemoveRange(dbContext.Matches);
-			dbContext.Bets.RemoveRange(dbContext.Bets);
-			dbContext.Odds.RemoveRange(dbContext.Odds);
+			List<Event> events = new();
 
-			await dbContext.SaveChangesAsync();
+			foreach (XmlEvent xmlEvent in xmlEvents)
+			{
+				Event @event = dbEvents.FirstOrDefault(e => e.Id == xmlEvent.Id) ?? new();
+
+				@event.Id = xmlEvent.Id;
+				@event.Name = xmlEvent.Name;
+				@event.IsLive = xmlEvent.IsLive;
+				@event.CategoryId = xmlEvent.CategoryID;
+				@event.Matches = CreateMatches(xmlEvent.Matches);
+
+				events.Add(@event);
+			}
+
+			return events;
+		}
+
+		private List<Match> CreateMatches(IEnumerable<XmlMatch> xmlMatches)
+		{
+			List<Match> matches = new();
+
+			foreach (XmlMatch xmlMatch in xmlMatches)
+			{
+				Match match = dbMatches.FirstOrDefault(m => m.Id == xmlMatch.Id) ?? new();
+
+				match.Id = xmlMatch.Id;
+				match.Name = xmlMatch.Name;
+				match.StartDate = xmlMatch.StartDate;
+				match.MatchType = xmlMatch.MatchType;
+				match.Bets = CreateBets(xmlMatch.Bets);
+
+				matches.Add(match);
+			}
+
+			return matches;
+		}
+
+		private List<Bet> CreateBets(IEnumerable<XmlBet> xmlBets)
+		{
+			List<Bet> bets = new();
+
+			foreach (XmlBet xmlBet in xmlBets)
+			{
+				Bet bet = dbBets.FirstOrDefault(b => b.Id == xmlBet.Id) ?? new();
+
+				bet.Id = xmlBet.Id;
+				bet.Name = xmlBet.Name;
+				bet.IsLive = xmlBet.IsLive;
+				bet.Odds = CreateOdds(xmlBet.Odds);
+
+				bets.Add(bet);
+			}
+
+			return bets;
+		}
+
+		private List<Odd> CreateOdds(IEnumerable<XmlOdd> xmlOdds)
+		{
+			List<Odd> odds = new();
+
+			foreach (XmlOdd xmlOdd in xmlOdds)
+			{
+				Odd odd = dbOdds.FirstOrDefault(o => o.Id == xmlOdd.Id) ?? new();
+
+				odd.Id = xmlOdd.Id;
+				odd.Name = xmlOdd.Name;
+				odd.Value = xmlOdd.Value;
+				odd.SpecialBetValue = xmlOdd.SpecialBetValue;
+
+				odds.Add(odd);
+			}
+
+			return odds;
+		}
+
+		public async Task ProcessDataAndSaveToDatabase(XmlSport[] sports)
+		{
+			dbSports = await dbContext.Sports.ToArrayAsync();
+			dbEvents = await dbContext.Events.ToArrayAsync();
+			dbMatches = await dbContext.Matches.Where(m => m.StartDate >= DateTime.UtcNow).ToArrayAsync();
+			dbBets = await dbContext.Bets.ToArrayAsync();
+			dbOdds = await dbContext.Odds.ToArrayAsync();
+
+			List<Sport> sportEntities = new();
+
+			try
+			{
+				foreach (XmlSport xmlSport in sports)
+				{
+					Sport sport = CreateSport(xmlSport);
+					sportEntities.Add(sport);
+				}
+
+				dbContext.Sports.AddRange(sportEntities);
+				await dbContext.SaveChangesAsync();
+			}
+			catch (Exception ex)
+			{
+				logger.LogError("Failed to save xml data in database with message: ", ex.Message);
+			}
 		}
 	}
 }
