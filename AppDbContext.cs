@@ -46,6 +46,16 @@ namespace UltraPlaySample
 
 	public class Odd
 	{
+		public Odd() { }
+		public Odd(int id, string name, decimal value, decimal? specialBetValue, int betId)
+		{
+			Id = id;
+			Name = name;
+			Value = value;
+			SpecialBetValue = specialBetValue;
+			BetId = betId;
+		}
+
 		[Key]
 		public int Id { get; set; }
 
@@ -67,6 +77,16 @@ namespace UltraPlaySample
 
 	public class Bet
 	{
+		public Bet() { }
+		public Bet(int id, string name, bool isLive, int matchId, ICollection<Odd> odds)
+		{
+			Id = id;
+			Name = name;
+			IsLive = isLive;
+			MatchId = matchId;
+			Odds = odds;
+		}
+
 		[Key]
 		public int Id { get; set; }
 
@@ -87,6 +107,17 @@ namespace UltraPlaySample
 
 	public class Match
 	{
+		public Match() { }
+		public Match(int id, string name, DateTime startDate, MatchTypesEnum matchType, int eventId, ICollection<Bet> bets)
+		{
+			Id = id;
+			Name = name;
+			StartDate = startDate;
+			MatchType = matchType;
+			EventId = eventId;
+			Bets = bets;
+		}
+
 		[Key]
 		public int Id { get; set; }
 
@@ -110,6 +141,17 @@ namespace UltraPlaySample
 
 	public class Event
 	{
+		public Event() { }
+		public Event(int id, string name, bool isLive, int categoryId, int sportId, ICollection<Match> matches)
+		{
+			Id = id;
+			Name = name;
+			IsLive = isLive;
+			CategoryId = categoryId;
+			SportId = sportId;
+			Matches = matches;
+		}
+
 		[Key]
 		public int Id { get; set; }
 
@@ -140,5 +182,13 @@ namespace UltraPlaySample
 		public string Name { get; set; }
 
 		public virtual ICollection<Event> Events { get; set; }
+
+		public Sport() { }
+		public Sport(int id, string name, ICollection<Event> events)
+		{
+			Id = id;
+			Name = name;
+			Events = events;
+		}
 	}
 }

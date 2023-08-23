@@ -2,9 +2,9 @@
 
 namespace UltraPlaySample.Services.Interfaces
 {
-    public interface IXmlDataService
-    {
-        public Task<XmlSports> FetchXmlData();
-        public Task ProcessDataAndSaveToDatabase(Models.XmlSport[] sports);
-    }
+	public interface IXmlDataService
+	{
+		public Task<XmlSports> FetchXmlData();
+		public Task ProcessDataAndSaveToDatabase(XmlSport[] sports);
+	}
 }

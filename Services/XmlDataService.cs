@@ -8,31 +8,32 @@ namespace UltraPlaySample.Services
 {
 	public class XmlDataService : IXmlDataService
 	{
-		private readonly AppDbContext dbContext;
-		private readonly ILogger<XmlDataService> logger;
-		private readonly IHttpClientFactory httpClientFactory;
-		private Sport[] dbSports;
-		private Event[] dbEvents;
-		private Match[] dbMatches;
-		private Bet[] dbBets;
-		private Odd[] dbOdds;
+		private readonly AppDbContext _dbContext;
+		private readonly ILogger<XmlDataService> _logger;
+		private readonly IHttpClientFactory _httpClientFactory;
+
+		private Sport[] _dbSports;
+		private Event[] _dbEvents;
+		private Match[] _dbMatches;
+		private Bet[] _dbBets;
+		private Odd[] _dbOdds;
 
 		public XmlDataService(AppDbContext dbContext, ILogger<XmlDataService> logger, IHttpClientFactory httpClientFactory)
 		{
-			this.dbContext = dbContext;
-			this.logger = logger;
-			this.httpClientFactory = httpClientFactory;
+			this._dbContext = dbContext;
+			this._logger = logger;
+			this._httpClientFactory = httpClientFactory;
 		}
 
 		public async Task<XmlSports> FetchXmlData()
 		{
-			using HttpClient httpClient = httpClientFactory.CreateClient();
+			using HttpClient httpClient = _httpClientFactory.CreateClient();
 			const string uri = "https://sports.ultraplay.net/sportsxml?clientKey=9C5E796D-4D54-42FD-A535-D7E77906541A&sportId=2357&days=7";
 			HttpResponseMessage response = await httpClient.GetAsync(uri);
 
 			if (!response.IsSuccessStatusCode)
 			{
-				logger.LogError("Failed to pull eSports data - bad response, reason: {reason}", await response.Content.ReadAsStringAsync());
+				_logger.LogError("Failed to pull eSports data - bad response, reason: {reason}", await response.Content.ReadAsStringAsync());
 				return null;
 			}
 
@@ -42,119 +43,155 @@ namespace UltraPlaySample.Services
 			return (XmlSports)xmlSerializer.Deserialize(reader);
 		}
 
-		private Sport CreateSport(XmlSport xmlSport)
+		private async Task ProcessSport(XmlSport xmlSport)
 		{
-			Sport sport = dbSports.FirstOrDefault(s => s.Id == xmlSport.Id) ?? new();
+			Sport sport = _dbSports.FirstOrDefault(s => s.Id == xmlSport.Id);
+
+			if (sport is null)
+			{
+				sport = new(xmlSport.Id, xmlSport.Name, await ProcessEvents(xmlSport.Events, xmlSport.Id));
+				_dbContext.Sports.Add(sport);
+				return;
+			}
 
 			sport.Id = xmlSport.Id;
 			sport.Name = xmlSport.Name;
-			sport.Events = CreateEvents(xmlSport.Events);
-
-			return sport;
+			sport.Events = await ProcessEvents(xmlSport.Events, xmlSport.Id);
+			_dbContext.Sports.Update(sport);
 		}
 
-		private List<Event> CreateEvents(IEnumerable<XmlEvent> xmlEvents)
+		private async Task<List<Event>> ProcessEvents(IEnumerable<XmlEvent> xmlEvents, int sportId)
 		{
-			List<Event> events = new();
+			List<Event> addedEvents = new();
 
 			foreach (XmlEvent xmlEvent in xmlEvents)
 			{
-				Event @event = dbEvents.FirstOrDefault(e => e.Id == xmlEvent.Id) ?? new();
+				Event @event = _dbEvents.FirstOrDefault(e => e.Id == xmlEvent.Id);
+
+				if (@event is null)
+				{
+					@event = new(xmlEvent.Id, xmlEvent.Name, xmlEvent.IsLive, xmlEvent.CategoryID, sportId, await ProcessMatches(xmlEvent.Matches, xmlEvent.Id));
+					_dbContext.Events.Add(@event);
+					addedEvents.Add(@event);
+					continue;
+				}
 
 				@event.Id = xmlEvent.Id;
 				@event.Name = xmlEvent.Name;
 				@event.IsLive = xmlEvent.IsLive;
 				@event.CategoryId = xmlEvent.CategoryID;
-				@event.Matches = CreateMatches(xmlEvent.Matches);
-
-				events.Add(@event);
+				@event.SportId = sportId;
+				@event.Matches = await ProcessMatches(xmlEvent.Matches, xmlEvent.Id);
+				addedEvents.Add(@event);
 			}
 
-			return events;
+			return addedEvents;
 		}
 
-		private List<Match> CreateMatches(IEnumerable<XmlMatch> xmlMatches)
+		private async Task<List<Match>> ProcessMatches(IEnumerable<XmlMatch> xmlMatches, int eventId)
 		{
-			List<Match> matches = new();
+			List<Match> addedMatches = new();
 
 			foreach (XmlMatch xmlMatch in xmlMatches)
 			{
-				Match match = dbMatches.FirstOrDefault(m => m.Id == xmlMatch.Id) ?? new();
+				Match match = _dbMatches.FirstOrDefault(m => m.Id == xmlMatch.Id);
+
+				if (match is null)
+				{
+					match = new(xmlMatch.Id, xmlMatch.Name, xmlMatch.StartDate, xmlMatch.MatchType, eventId, await ProcessBets(xmlMatch.Bets, xmlMatch.Id));
+					_dbContext.Matches.Add(match);
+					addedMatches.Add(match);
+					continue;
+				}
 
 				match.Id = xmlMatch.Id;
 				match.Name = xmlMatch.Name;
-				match.StartDate = xmlMatch.StartDate;
-				match.MatchType = xmlMatch.MatchType;
-				match.Bets = CreateBets(xmlMatch.Bets);
-
-				matches.Add(match);
+				match.EventId = eventId;
+				match.Bets = await ProcessBets(xmlMatch.Bets, xmlMatch.Id);
+				addedMatches.Add(match);
 			}
 
-			return matches;
+			return addedMatches;
 		}
 
-		private List<Bet> CreateBets(IEnumerable<XmlBet> xmlBets)
+		private async Task<List<Bet>> ProcessBets(ICollection<XmlBet> xmlBets, int matchId)
 		{
-			List<Bet> bets = new();
+			List<Bet> addedBets = new();
 
 			foreach (XmlBet xmlBet in xmlBets)
 			{
-				Bet bet = dbBets.FirstOrDefault(b => b.Id == xmlBet.Id) ?? new();
+				Bet bet = _dbBets.FirstOrDefault(m => m.Id == xmlBet.Id);
+
+				if (bet is null)
+				{
+					bet = new(xmlBet.Id, xmlBet.Name, xmlBet.IsLive, matchId, await ProcessOdds(xmlBet.Odds, xmlBet.Id));
+					_dbContext.Bets.Add(bet);
+					addedBets.Add(bet);
+					continue;
+				}
 
 				bet.Id = xmlBet.Id;
 				bet.Name = xmlBet.Name;
 				bet.IsLive = xmlBet.IsLive;
-				bet.Odds = CreateOdds(xmlBet.Odds);
-
-				bets.Add(bet);
+				bet.MatchId = matchId;
+				bet.Odds = await ProcessOdds(xmlBet.Odds, xmlBet.Id);
+				addedBets.Add(bet);
 			}
 
-			return bets;
+			return addedBets;
 		}
 
-		private List<Odd> CreateOdds(IEnumerable<XmlOdd> xmlOdds)
+		private async Task<List<Odd>> ProcessOdds(IEnumerable<XmlOdd> xmlOdds, int betId)
 		{
-			List<Odd> odds = new();
+			List<Odd> processedOdds = new();
 
 			foreach (XmlOdd xmlOdd in xmlOdds)
 			{
-				Odd odd = dbOdds.FirstOrDefault(o => o.Id == xmlOdd.Id) ?? new();
+				Odd odd = _dbOdds.FirstOrDefault(m => m.Id == xmlOdd.Id);
+
+				if (odd is null)
+				{
+					odd = new(xmlOdd.Id, xmlOdd.Name, xmlOdd.Value, xmlOdd.SpecialBetValue, betId);
+					_dbContext.Odds.Add(odd);
+					processedOdds.Add(odd);
+					continue;
+				}
 
 				odd.Id = xmlOdd.Id;
 				odd.Name = xmlOdd.Name;
 				odd.Value = xmlOdd.Value;
 				odd.SpecialBetValue = xmlOdd.SpecialBetValue;
-
-				odds.Add(odd);
+				odd.BetId = betId;
+				processedOdds.Add(odd);
 			}
 
-			return odds;
+			return processedOdds;
 		}
 
-		public async Task ProcessDataAndSaveToDatabase(XmlSport[] sports)
+		public async Task ProcessDataAndSaveToDatabase(XmlSport[] xmlSports)
 		{
-			dbSports = await dbContext.Sports.ToArrayAsync();
-			dbEvents = await dbContext.Events.ToArrayAsync();
-			dbMatches = await dbContext.Matches.Where(m => m.StartDate >= DateTime.UtcNow).ToArrayAsync();
-			dbBets = await dbContext.Bets.ToArrayAsync();
-			dbOdds = await dbContext.Odds.ToArrayAsync();
+			_dbSports = await _dbContext.Sports.ToArrayAsync();
+			_dbEvents = await _dbContext.Events.ToArrayAsync();
+			_dbMatches = await _dbContext.Matches.ToArrayAsync();
+			_dbBets = await _dbContext.Bets.ToArrayAsync();
+			_dbOdds = await _dbContext.Odds.ToArrayAsync();
 
-			List<Sport> sportEntities = new();
+			//List<XmlEvent[]> xmlEvents = xmlSports.Select(x => x.Events).ToList();
+			//List<XmlMatch[]> xmlMatches = xmlEvents.SelectMany(x => x.Select(d => d.Matches)).ToList();
+			//List<XmlBet[]> xmlBets = xmlMatches.SelectMany(x => x.Select(d => d.Bets)).ToList();
+			//List<XmlOdd[]> xmlOdds = xmlBets.SelectMany(x => x.Select(d => d.Odds)).ToList();
 
 			try
 			{
-				foreach (XmlSport xmlSport in sports)
-				{
-					Sport sport = CreateSport(xmlSport);
-					sportEntities.Add(sport);
-				}
+				foreach (XmlSport xmlSport in xmlSports)
+					await ProcessSport(xmlSport);
 
-				dbContext.Sports.AddRange(sportEntities);
-				await dbContext.SaveChangesAsync();
+
+				await _dbContext.SaveChangesAsync();
 			}
 			catch (Exception ex)
 			{
-				logger.LogError("Failed to save xml data in database with message: ", ex.Message);
+				_logger.LogError("Failed to save xml data in database with exception: {msg}", ex.Message);
 			}
 		}
 	}
