@@ -1,10 +1,13 @@
 ﻿using System.Text;
 using System.Xml.Serialization;
 using Microsoft.EntityFrameworkCore;
-using UltraPlaySample.Models;
+using UltraPlaySample.Common.Enums;
+using UltraPlaySample.Data;
+using UltraPlaySample.Data.Entities;
+using UltraPlaySample.Models.DTOs.XML;
 using UltraPlaySample.Services.Interfaces;
 
-namespace UltraPlaySample.Services
+namespace UltraPlaySample.Services.Implementations
 {
 	public class XmlDataService : IXmlDataService
 	{
@@ -20,9 +23,9 @@ namespace UltraPlaySample.Services
 
 		public XmlDataService(AppDbContext dbContext, ILogger<XmlDataService> logger, IHttpClientFactory httpClientFactory)
 		{
-			this._dbContext = dbContext;
-			this._logger = logger;
-			this._httpClientFactory = httpClientFactory;
+			_dbContext = dbContext;
+			_logger = logger;
+			_httpClientFactory = httpClientFactory;
 		}
 
 		public async Task<XmlSports> FetchXmlData()
@@ -94,6 +97,9 @@ namespace UltraPlaySample.Services
 
 			foreach (XmlMatch xmlMatch in xmlMatches)
 			{
+				if (xmlMatch.MatchType == MatchTypesEnum.OutRight)
+					continue;
+
 				Match match = _dbMatches.FirstOrDefault(m => m.Id == xmlMatch.Id);
 
 				if (match is null)
@@ -170,22 +176,17 @@ namespace UltraPlaySample.Services
 
 		public async Task ProcessDataAndSaveToDatabase(XmlSport[] xmlSports)
 		{
+			// TODO: Don't store the following tables in memory
 			_dbSports = await _dbContext.Sports.ToArrayAsync();
 			_dbEvents = await _dbContext.Events.ToArrayAsync();
 			_dbMatches = await _dbContext.Matches.ToArrayAsync();
 			_dbBets = await _dbContext.Bets.ToArrayAsync();
 			_dbOdds = await _dbContext.Odds.ToArrayAsync();
 
-			//List<XmlEvent[]> xmlEvents = xmlSports.Select(x => x.Events).ToList();
-			//List<XmlMatch[]> xmlMatches = xmlEvents.SelectMany(x => x.Select(d => d.Matches)).ToList();
-			//List<XmlBet[]> xmlBets = xmlMatches.SelectMany(x => x.Select(d => d.Bets)).ToList();
-			//List<XmlOdd[]> xmlOdds = xmlBets.SelectMany(x => x.Select(d => d.Odds)).ToList();
-
 			try
 			{
 				foreach (XmlSport xmlSport in xmlSports)
 					await ProcessSport(xmlSport);
-
 
 				await _dbContext.SaveChangesAsync();
 			}

@@ -1,9 +1,9 @@
-﻿using UltraPlaySample.Models;
+﻿using UltraPlaySample.Models.DTOs.XML;
 using UltraPlaySample.Services.Interfaces;
 
-namespace UltraPlaySample.Services
+namespace UltraPlaySample.Services.Implementations
 {
-    public class TimedHostedService : IHostedService, IDisposable
+	public class TimedHostedService : IHostedService, IDisposable
 	{
 		private readonly ILogger<TimedHostedService> logger;
 		private readonly IServiceScopeFactory factory;
