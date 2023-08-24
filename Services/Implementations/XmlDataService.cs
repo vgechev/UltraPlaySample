@@ -25,6 +25,10 @@ namespace UltraPlaySample.Services.Implementations
 		private Bet[] _dbBets;
 		private Odd[] _dbOdds;
 
+		private int[] _activeMatchIds;
+		private int[] _activeBetIds;
+		private int[] _activeOddIds;
+
 		public XmlDataService(AppDbContext dbContext, ILogger<XmlDataService> logger, IHttpClientFactory httpClientFactory)
 		{
 			_dbContext = dbContext;
@@ -117,10 +121,11 @@ namespace UltraPlaySample.Services.Implementations
 				match.Id = xmlMatch.Id;
 				match.Name = xmlMatch.Name;
 				match.EventId = eventId;
+				match.IsActive = true;
 				match.Bets = ProcessBets(xmlMatch.Bets, xmlMatch.Id);
 				matches.Add(match);
-				
-				WebSocketHelper.eventsQueue.Enqueue(new MatchUpdateMessage(
+
+				WebSocketHelper<MatchUpdateMessage>.eventsQueue.Enqueue(new MatchUpdateMessage(
 					new(xmlMatch.Id, xmlMatch.Name, xmlMatch.StartDate, xmlMatch.MatchType)));
 			}
 
@@ -146,11 +151,12 @@ namespace UltraPlaySample.Services.Implementations
 				bet.Id = xmlBet.Id;
 				bet.Name = xmlBet.Name;
 				bet.IsLive = xmlBet.IsLive;
+				bet.IsActive = true;
 				bet.MatchId = matchId;
 				bet.Odds = ProcessOdds(xmlBet.Odds, xmlBet.Id);
 				bets.Add(bet);
-				
-				WebSocketHelper.eventsQueue.Enqueue(new BetUpdateMessage(
+
+				WebSocketHelper<BetUpdateMessage>.eventsQueue.Enqueue(new BetUpdateMessage(
 					new(xmlBet.Id, xmlBet.Name, xmlBet.IsLive)));
 			}
 
@@ -177,10 +183,11 @@ namespace UltraPlaySample.Services.Implementations
 				odd.Name = xmlOdd.Name;
 				odd.Value = xmlOdd.Value;
 				odd.SpecialBetValue = xmlOdd.SpecialBetValue;
+				odd.IsActive = true;
 				odd.BetId = betId;
 				odds.Add(odd);
 
-				WebSocketHelper.eventsQueue.Enqueue(new OddUpdateMessage(
+				WebSocketHelper<OddUpdateMessage>.eventsQueue.Enqueue(new OddUpdateMessage(
 					new(xmlOdd.Id, xmlOdd.Name, xmlOdd.Value, odd.SpecialBetValue)));
 			}
 
@@ -189,12 +196,16 @@ namespace UltraPlaySample.Services.Implementations
 
 		public async Task ProcessDataAndSaveToDatabase(XmlSport[] xmlSports)
 		{
-			// TODO: Don't store the following tables in-memory. (Maybe, get the id's of each separate item and filter by them?)
-			_dbSports = await _dbContext.Sports.Where(s => xmlSports.Select(x => x.Id).Contains(s.Id)).ToArrayAsync();
+			// TODO: Don't store the following tables in-memory - optimize.
+			_dbSports = await _dbContext.Sports.ToArrayAsync();
 			_dbEvents = await _dbContext.Events.ToArrayAsync();
 			_dbMatches = await _dbContext.Matches.ToArrayAsync();
 			_dbBets = await _dbContext.Bets.ToArrayAsync();
 			_dbOdds = await _dbContext.Odds.ToArrayAsync();
+
+			_activeMatchIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).Select(match => match.Id).ToArray();
+			_activeBetIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).SelectMany(match => match.Bets).Select(bet => bet.Id).ToArray();
+			_activeOddIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).SelectMany(match => match.Bets).SelectMany(bet => bet.Odds).Select(odd => odd.Id).ToArray();
 
 			try
 			{

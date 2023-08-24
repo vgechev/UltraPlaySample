@@ -7,7 +7,7 @@ namespace UltraPlaySample.Services.Implementations
 	{
 		private readonly ILogger<TimedHostedService> logger;
 		private readonly IServiceScopeFactory factory;
-		private Timer pullingTimer;
+		private Timer xmlDataTimer;
 
 		public TimedHostedService(ILogger<TimedHostedService> logger, IServiceScopeFactory factory)
 		{
@@ -17,7 +17,7 @@ namespace UltraPlaySample.Services.Implementations
 
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
-			pullingTimer = new(async (_) => await ProcessESportsData(), null, TimeSpan.Zero, TimeSpan.FromSeconds(60));
+			xmlDataTimer = new(async (_) => await ProcessESportsData(), null, TimeSpan.Zero, TimeSpan.FromSeconds(15));
 			return Task.CompletedTask;
 		}
 
@@ -36,12 +36,14 @@ namespace UltraPlaySample.Services.Implementations
 			}
 		}
 
+
+
 		public Task StopAsync(CancellationToken cancellationToken)
 		{
-			pullingTimer?.Dispose();
+			xmlDataTimer?.Dispose();
 			return Task.CompletedTask;
 		}
 
-		public void Dispose() => pullingTimer?.Dispose();
+		public void Dispose() => xmlDataTimer?.Dispose();
 	}
 }

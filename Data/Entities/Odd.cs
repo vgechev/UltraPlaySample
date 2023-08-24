@@ -14,6 +14,7 @@ namespace UltraPlaySample.Data.Entities
             Name = name;
             Value = value;
             SpecialBetValue = specialBetValue;
+            IsActive = true;
             BetId = betId;
         }
 
@@ -29,7 +30,10 @@ namespace UltraPlaySample.Data.Entities
         [Precision(18, 6)]
         public decimal? SpecialBetValue { get; set; }
 
-        [NotNull]
+		[NotNull]
+		public bool IsActive { get; set; }
+
+		[NotNull]
         public int BetId { get; set; }
 
         [ForeignKey(nameof(BetId))]

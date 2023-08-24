@@ -20,7 +20,7 @@ namespace UltraPlaySample.Repositories.Implementations
 		{
 			GetMatchResponseModel match = await _dbContext.Matches
 				.Where(m => m.Id == matchId)
-				.Select(m => new GetMatchResponseModel(m.Name, m.MatchType, m.StartDate))
+				.Select(m => new GetMatchResponseModel(m.Name, m.MatchType, m.StartDate, m.IsActive))
 				.FirstOrDefaultAsync();
 
 			if (match is null)
@@ -48,7 +48,8 @@ namespace UltraPlaySample.Repositories.Implementations
 
 		private async Task SetBetsForLiveMatch(int matchId, GetMatchResponseModel match)
 		{
-			if (match.StartDate >= DateTime.UtcNow) // TODO: figure out when is a bet no longer considered 'active' for Live matches
+			// TODO: If it's even possible, handle cases when we have active and inactive bets simultaneously for Live matches
+			if (match.StartDate <= DateTime.UtcNow && match.IsActive)
 				match.ActiveBets = await GetBetsWithOddsForMatch(matchId);
 			else
 				match.InactiveBets = await GetBetsWithOddsForMatch(matchId);
@@ -56,16 +57,17 @@ namespace UltraPlaySample.Repositories.Implementations
 
 		private async Task SetBetsForPreMatchMatch(int matchId, GetMatchResponseModel match)
 		{
-			if (match.StartDate <= DateTime.UtcNow)
+			if (match.StartDate > DateTime.UtcNow)
 				match.ActiveBets = await GetBetsWithOddsForMatch(matchId);
 			else
 				match.InactiveBets = await GetBetsWithOddsForMatch(matchId);
 		}
 
-		private async Task<BetDto[]> GetBetsWithOddsForMatch(int matchId) => await _dbContext.Bets
-									.Where(b => b.MatchId == matchId)
-									.Select(b => new BetDto(b.Name, b.IsLive, GetOddsDtosFromEntities(b.Odds)))
-									.ToArrayAsync();
+		private async Task<BetDto[]> GetBetsWithOddsForMatch(int matchId) =>
+			await _dbContext.Bets
+				.Where(b => b.MatchId == matchId)
+				.Select(b => new BetDto(b.Name, b.IsLive, GetOddsDtosFromEntities(b.Odds)))
+				.ToArrayAsync();
 
 		public async Task<GetUpcomingMatchResponseModel[]> GetUpcomingMatchesByHoursRange(int hoursRange)
 		{

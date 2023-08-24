@@ -8,12 +8,13 @@ namespace UltraPlaySample.Data.Entities
     public class Match
     {
         public Match() { }
-        public Match(int id, string name, DateTime startDate, MatchTypesEnum matchType, int eventId, ICollection<Bet> bets)
+        public Match(int id, string name, DateTime startDate, MatchTypesEnum matchType, int eventId, ICollection<Bet> bets, bool isActive = true)
         {
             Id = id;
             Name = name;
             StartDate = startDate;
             MatchType = matchType;
+            IsActive = isActive;
             EventId = eventId;
             Bets = bets;
         }
@@ -29,6 +30,9 @@ namespace UltraPlaySample.Data.Entities
 
         [NotNull]
         public MatchTypesEnum MatchType { get; set; }
+
+        [NotNull]
+        public bool IsActive { get; set; }
 
         [NotNull]
         public int EventId { get; set; }

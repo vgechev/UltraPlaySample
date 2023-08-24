@@ -1,8 +1,9 @@
-﻿namespace UltraPlaySample.Modules
+﻿using UltraPlaySample.Models.Events;
+
+namespace UltraPlaySample.Modules
 {
-	public static class WebSocketHelper
+	public static class WebSocketHelper<T>
 	{
-		// TODO: Use explicit type instead of object, something like EventMessage<T>
-		public static Queue<object> eventsQueue = new();
+		public static Queue<EventMessage<T>> eventsQueue = new();
 	}
 }
