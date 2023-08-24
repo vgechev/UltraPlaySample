@@ -17,11 +17,11 @@ namespace UltraPlaySample.Services.Implementations
 
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
-			xmlDataTimer = new(async (_) => await ProcessESportsData(), null, TimeSpan.Zero, TimeSpan.FromSeconds(15));
+			xmlDataTimer = new(async (_) => await FetchXmlData(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
 			return Task.CompletedTask;
 		}
 
-		private async Task ProcessESportsData()
+		private async Task FetchXmlData()
 		{
 			try
 			{

@@ -54,6 +54,50 @@ namespace UltraPlaySample.Services.Implementations
 			return (XmlSports)xmlSerializer.Deserialize(reader);
 		}
 
+		public async Task ProcessDataAndSaveToDatabase(XmlSport[] xmlSports)
+		{
+			await FetchCurrentEntitiesInMemory();
+			FillActiveIds(xmlSports);
+
+			List<Match> inactiveMatches = await _dbContext.Matches.Where(m => !_activeMatchIds.Contains(m.Id) && m.IsActive).ToListAsync();
+			List<Bet> inactiveBets = await _dbContext.Bets.Where(b => !_activeBetIds.Contains(b.Id) && b.IsActive).ToListAsync();
+			List<Odd> inactiveOdds = await _dbContext.Odds.Where(o => !_activeOddIds.Contains(o.Id) && o.IsActive).ToListAsync();
+
+			try
+			{
+				foreach (XmlSport xmlSport in xmlSports)
+					ProcessSport(xmlSport);
+
+				await _dbContext.SaveChangesAsync();
+
+				SetInactiveMatches(inactiveMatches);
+				SetInactiveBets(inactiveBets);
+				SetInactiveOdds(inactiveOdds);
+
+				await _dbContext.SaveChangesAsync();
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError("Failed to save xml data in database with exception: {msg}", ex.Message);
+			}
+		}
+
+		private void FillActiveIds(XmlSport[] xmlSports)
+		{
+			_activeMatchIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).Select(match => match.Id).ToArray();
+			_activeBetIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).SelectMany(match => match.Bets).Select(bet => bet.Id).ToArray();
+			_activeOddIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).SelectMany(match => match.Bets).SelectMany(bet => bet.Odds).Select(odd => odd.Id).ToArray();
+		}
+
+		private async Task FetchCurrentEntitiesInMemory()
+		{
+			_dbSports = await _dbContext.Sports.ToArrayAsync();
+			_dbEvents = await _dbContext.Events.ToArrayAsync();
+			_dbMatches = await _dbContext.Matches.ToArrayAsync();
+			_dbBets = await _dbContext.Bets.ToArrayAsync();
+			_dbOdds = await _dbContext.Odds.ToArrayAsync();
+		}
+
 		private void ProcessSport(XmlSport xmlSport)
 		{
 			Sport sport = _dbSports.FirstOrDefault(s => s.Id == xmlSport.Id);
@@ -194,29 +238,39 @@ namespace UltraPlaySample.Services.Implementations
 			return odds;
 		}
 
-		public async Task ProcessDataAndSaveToDatabase(XmlSport[] xmlSports)
+		private void SetInactiveOdds(List<Odd> inactiveOdds)
 		{
-			// TODO: Don't store the following tables in-memory - optimize.
-			_dbSports = await _dbContext.Sports.ToArrayAsync();
-			_dbEvents = await _dbContext.Events.ToArrayAsync();
-			_dbMatches = await _dbContext.Matches.ToArrayAsync();
-			_dbBets = await _dbContext.Bets.ToArrayAsync();
-			_dbOdds = await _dbContext.Odds.ToArrayAsync();
-
-			_activeMatchIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).Select(match => match.Id).ToArray();
-			_activeBetIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).SelectMany(match => match.Bets).Select(bet => bet.Id).ToArray();
-			_activeOddIds = xmlSports.SelectMany(sport => sport.Events).SelectMany(evt => evt.Matches).SelectMany(match => match.Bets).SelectMany(bet => bet.Odds).Select(odd => odd.Id).ToArray();
-
-			try
+			foreach (Odd odd in inactiveOdds)
 			{
-				foreach (XmlSport xmlSport in xmlSports)
-					ProcessSport(xmlSport);
+				odd.IsActive = false;
+				_dbContext.Odds.Add(odd);
 
-				await _dbContext.SaveChangesAsync();
+				WebSocketHelper<InactiveOddUpdateMessage>.eventsQueue.Enqueue(new InactiveOddUpdateMessage(
+					new(odd.Id, odd.Name)));
 			}
-			catch (Exception ex)
+		}
+
+		private void SetInactiveBets(List<Bet> inactiveBets)
+		{
+			foreach (Bet bet in inactiveBets)
 			{
-				_logger.LogError("Failed to save xml data in database with exception: {msg}", ex.Message);
+				bet.IsActive = false;
+				_dbContext.Bets.Add(bet);
+
+				WebSocketHelper<InactiveBetUpdateMessage>.eventsQueue.Enqueue(new InactiveBetUpdateMessage(
+					new(bet.Id, bet.Name)));
+			}
+		}
+
+		private void SetInactiveMatches(List<Match> inactiveMatches)
+		{
+			foreach (Match match in inactiveMatches)
+			{
+				match.IsActive = false;
+				_dbContext.Matches.Add(match);
+
+				WebSocketHelper<InactiveMatchUpdateMessage>.eventsQueue.Enqueue(new InactiveMatchUpdateMessage(
+					new(match.Id, match.Name, match.MatchType)));
 			}
 		}
 	}

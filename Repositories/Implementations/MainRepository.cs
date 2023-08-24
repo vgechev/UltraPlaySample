@@ -47,8 +47,7 @@ namespace UltraPlaySample.Repositories.Implementations
 		}
 
 		private async Task SetBetsForLiveMatch(int matchId, GetMatchResponseModel match)
-		{
-			// TODO: If it's even possible, handle cases when we have active and inactive bets simultaneously for Live matches
+		{	
 			if (match.StartDate <= DateTime.UtcNow && match.IsActive)
 				match.ActiveBets = await GetBetsWithOddsForMatch(matchId);
 			else

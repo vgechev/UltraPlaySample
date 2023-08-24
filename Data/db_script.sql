@@ -1,0 +1,163 @@
+USE [master]
+GO
+
+CREATE DATABASE [ultraplay]
+GO
+
+USE [ultraplay]
+GO
+
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Bets](
+	[Id] [int] NOT NULL,
+	[Name] [nvarchar](200) NOT NULL,
+	[IsLive] [bit] NOT NULL,
+	[IsActive] [bit] NOT NULL,
+	[MatchId] [int] NOT NULL,
+ CONSTRAINT [PK_Bets] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+/****** Object:  Table [dbo].[Events]    Script Date: 24.8.2023 г. 16:42:04 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Events](
+	[Id] [int] NOT NULL,
+	[Name] [nvarchar](200) NOT NULL,
+	[IsLive] [bit] NOT NULL,
+	[CategoryId] [int] NOT NULL,
+	[SportId] [int] NOT NULL,
+ CONSTRAINT [PK_Events] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+/****** Object:  Table [dbo].[Matches]    Script Date: 24.8.2023 г. 16:42:04 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Matches](
+	[Id] [int] NOT NULL,
+	[Name] [nvarchar](200) NOT NULL,
+	[StartDate] [datetime] NOT NULL,
+	[MatchType] [smallint] NOT NULL,
+	[IsActive] [bit] NOT NULL,
+	[EventId] [int] NOT NULL,
+ CONSTRAINT [PK_Matches] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+/****** Object:  Table [dbo].[MatchTypes]    Script Date: 24.8.2023 г. 16:42:04 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[MatchTypes](
+	[Id] [smallint] NOT NULL,
+	[Name] [nvarchar](50) NOT NULL,
+ CONSTRAINT [PK_MatchTypes] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+/****** Object:  Table [dbo].[Odds]    Script Date: 24.8.2023 г. 16:42:04 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Odds](
+	[Id] [int] NOT NULL,
+	[Name] [nvarchar](200) NOT NULL,
+	[Value] [decimal](18, 6) NOT NULL,
+	[SpecialBetValue] [decimal](18, 6) NULL,
+	[IsActive] [bit] NOT NULL,
+	[BetId] [int] NOT NULL,
+ CONSTRAINT [PK_Odds] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+/****** Object:  Table [dbo].[Sports]    Script Date: 24.8.2023 г. 16:42:04 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[Sports](
+	[Id] [int] NOT NULL,
+	[Name] [nvarchar](200) NOT NULL,
+ CONSTRAINT [PK_Sports] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+ALTER TABLE [dbo].[Bets]  WITH CHECK ADD  CONSTRAINT [FK_Bets_Matches] FOREIGN KEY([MatchId])
+REFERENCES [dbo].[Matches] ([Id])
+GO
+
+ALTER TABLE [dbo].[Bets] CHECK CONSTRAINT [FK_Bets_Matches]
+GO
+
+ALTER TABLE [dbo].[Events]  WITH CHECK ADD  CONSTRAINT [FK_Sports_Id_Events_SportId] FOREIGN KEY([SportId])
+REFERENCES [dbo].[Sports] ([Id])
+GO
+
+ALTER TABLE [dbo].[Events] CHECK CONSTRAINT [FK_Sports_Id_Events_SportId]
+GO
+
+ALTER TABLE [dbo].[Matches]  WITH CHECK ADD  CONSTRAINT [FK_Matches_Events] FOREIGN KEY([EventId])
+REFERENCES [dbo].[Events] ([Id])
+GO
+
+ALTER TABLE [dbo].[Matches] CHECK CONSTRAINT [FK_Matches_Events]
+GO
+
+ALTER TABLE [dbo].[Matches]  WITH CHECK ADD  CONSTRAINT [FK_Matches_MatchTypes] FOREIGN KEY([MatchType])
+REFERENCES [dbo].[MatchTypes] ([Id])
+GO
+
+ALTER TABLE [dbo].[Matches] CHECK CONSTRAINT [FK_Matches_MatchTypes]
+GO
+
+ALTER TABLE [dbo].[Odds]  WITH CHECK ADD  CONSTRAINT [FK_Odds_Bets] FOREIGN KEY([BetId])
+REFERENCES [dbo].[Bets] ([Id])
+GO
+
+ALTER TABLE [dbo].[Odds] CHECK CONSTRAINT [FK_Odds_Bets]
+GO
+
+USE [master]
+GO
+
+ALTER DATABASE [ultraplay] SET  READ_WRITE 
+GO
+
+USE [ultraplay]
+GO
+
+-- seed
+INSERT INTO MatchTypes VALUES 
+(1, 'PreMatch'),
+(2, 'Live'),
+(3, 'OutRight')
