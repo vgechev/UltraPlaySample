@@ -27,12 +27,12 @@ namespace UltraPlaySample.Data
 				new(MatchTypesEnum.OutRight, MatchTypesEnum.OutRight.ToString())
 			});
 
-			//modelBuilder.Entity<Odd>()
-			//	.Property(x => x.SpecialBetValue)
-			//	.HasConversion(
-			//		value => value == 0 ? null : value,
-			//		value => value
-			//	);
+			modelBuilder.Entity<Odd>()
+				.Property(x => x.SpecialBetValue)
+				.HasConversion(
+					value => value == 0 ? null : value,
+					value => value
+				);
 		}
 	}
 }

@@ -24,35 +24,42 @@ namespace UltraPlaySample.Repositories.Implementations
 				.FirstOrDefaultAsync();
 
 			if (match is null)
-				return null; // TODO: Return an error code (msg) and handle appropriately.
-
-			DateTime now = DateTime.UtcNow;
+				return null; // TODO: Return an error code (msg) and handle this case appropriately.
 
 			switch (match.MatchType)
 			{
 				case MatchTypesEnum.PreMatch:
-					if (match.StartDate <= now)
-						match.ActiveBets = await GetBetsWithOddsForMatch(matchId);
-					else
-						match.InactiveBets = await GetBetsWithOddsForMatch(matchId);
+					await SetBetsForPreMatchMatch(matchId, match);
 					break;
 
 				case MatchTypesEnum.Live:
-					if (match.StartDate.Date == now.Date && match.StartDate >= now) // TODO: figure out the "EndDate" condition
-						match.ActiveBets = await GetBetsWithOddsForMatch(matchId);
-					else
-						match.InactiveBets = await GetBetsWithOddsForMatch(matchId);
-
+					await SetBetsForLiveMatch(matchId, match);
 					break;
 
 				case MatchTypesEnum.OutRight:
 					throw new DataException("There shouldn't be any OutRight matches");
 
 				default:
-					break;
+					throw new ArgumentException("Match has unknown match type");
 			}
 
 			return match;
+		}
+
+		private async Task SetBetsForLiveMatch(int matchId, GetMatchResponseModel match)
+		{
+			if (match.StartDate >= DateTime.UtcNow) // TODO: figure out when is a bet no longer considered 'active' for Live matches
+				match.ActiveBets = await GetBetsWithOddsForMatch(matchId);
+			else
+				match.InactiveBets = await GetBetsWithOddsForMatch(matchId);
+		}
+
+		private async Task SetBetsForPreMatchMatch(int matchId, GetMatchResponseModel match)
+		{
+			if (match.StartDate <= DateTime.UtcNow)
+				match.ActiveBets = await GetBetsWithOddsForMatch(matchId);
+			else
+				match.InactiveBets = await GetBetsWithOddsForMatch(matchId);
 		}
 
 		private async Task<BetDto[]> GetBetsWithOddsForMatch(int matchId) => await _dbContext.Bets
@@ -68,7 +75,7 @@ namespace UltraPlaySample.Repositories.Implementations
 				.Where(m => m.StartDate >= now && m.StartDate <= now.AddHours(hoursRange))
 				.OrderByDescending(m => m.StartDate)
 				.Select(m => new GetUpcomingMatchResponseModel(m.Name, m.StartDate, m.Bets
-					.Where(b => _previewBetNames.Contains(b.Name, StringComparer.OrdinalIgnoreCase))
+					.Where(b => _previewBetNames.Contains(b.Name))
 					.Select(b => new BetDto(b.Name, b.IsLive, GetOddsDtosFromEntities(b.Odds)))
 					.ToArray()))
 				.ToArrayAsync();
@@ -78,20 +85,3 @@ namespace UltraPlaySample.Repositories.Implementations
 			odds.Select(o => new OddDto(o.Name, o.SpecialBetValue, o.Value)).ToArray();
 	}
 }
-
-/*
-## Active Bets
-Active bets refer to betting opportunities that are currently available for customers to place bets on:
-
-- For "Prematch" matches (matches that are open for betting before their start date), active bets are those that are currently open for 
-betting before the match's start date.
-
-- For "Live" matches (matches that have started), active bets are those that are currently open for betting after the match's start date.
-
-- The term "active" in this context doesn't necessarily mean that a specific bet has ongoing activity or bets placed on it; 
-it simply indicates that the bet is currently available for customers to place bets on.
-
-## Inactive Bets
-Inactive bets, on the other hand, refer to betting opportunities that are no longer available for customers to place bets on. 
-They might have become inactive due to various reasons, such as the match ending, the betting window closing, or the outcome of the bet being resolved.
-*/

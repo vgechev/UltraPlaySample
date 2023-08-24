@@ -5,6 +5,10 @@ using UltraPlaySample.Common.Enums;
 using UltraPlaySample.Data;
 using UltraPlaySample.Data.Entities;
 using UltraPlaySample.Models.DTOs.XML;
+using UltraPlaySample.Models.Events.Bets;
+using UltraPlaySample.Models.Events.Matches;
+using UltraPlaySample.Models.Events.Odds;
+using UltraPlaySample.Modules;
 using UltraPlaySample.Services.Interfaces;
 
 namespace UltraPlaySample.Services.Implementations
@@ -46,26 +50,26 @@ namespace UltraPlaySample.Services.Implementations
 			return (XmlSports)xmlSerializer.Deserialize(reader);
 		}
 
-		private async Task ProcessSport(XmlSport xmlSport)
+		private void ProcessSport(XmlSport xmlSport)
 		{
 			Sport sport = _dbSports.FirstOrDefault(s => s.Id == xmlSport.Id);
 
 			if (sport is null)
 			{
-				sport = new(xmlSport.Id, xmlSport.Name, await ProcessEvents(xmlSport.Events, xmlSport.Id));
+				sport = new(xmlSport.Id, xmlSport.Name, ProcessEvents(xmlSport.Events, xmlSport.Id));
 				_dbContext.Sports.Add(sport);
 				return;
 			}
 
 			sport.Id = xmlSport.Id;
 			sport.Name = xmlSport.Name;
-			sport.Events = await ProcessEvents(xmlSport.Events, xmlSport.Id);
+			sport.Events = ProcessEvents(xmlSport.Events, xmlSport.Id);
 			_dbContext.Sports.Update(sport);
 		}
 
-		private async Task<List<Event>> ProcessEvents(IEnumerable<XmlEvent> xmlEvents, int sportId)
+		private List<Event> ProcessEvents(IEnumerable<XmlEvent> xmlEvents, int sportId)
 		{
-			List<Event> addedEvents = new();
+			List<Event> events = new();
 
 			foreach (XmlEvent xmlEvent in xmlEvents)
 			{
@@ -73,9 +77,9 @@ namespace UltraPlaySample.Services.Implementations
 
 				if (@event is null)
 				{
-					@event = new(xmlEvent.Id, xmlEvent.Name, xmlEvent.IsLive, xmlEvent.CategoryID, sportId, await ProcessMatches(xmlEvent.Matches, xmlEvent.Id));
+					@event = new(xmlEvent.Id, xmlEvent.Name, xmlEvent.IsLive, xmlEvent.CategoryID, sportId, ProcessMatches(xmlEvent.Matches, xmlEvent.Id));
 					_dbContext.Events.Add(@event);
-					addedEvents.Add(@event);
+					events.Add(@event);
 					continue;
 				}
 
@@ -84,16 +88,16 @@ namespace UltraPlaySample.Services.Implementations
 				@event.IsLive = xmlEvent.IsLive;
 				@event.CategoryId = xmlEvent.CategoryID;
 				@event.SportId = sportId;
-				@event.Matches = await ProcessMatches(xmlEvent.Matches, xmlEvent.Id);
-				addedEvents.Add(@event);
+				@event.Matches = ProcessMatches(xmlEvent.Matches, xmlEvent.Id);
+				events.Add(@event);
 			}
 
-			return addedEvents;
+			return events;
 		}
 
-		private async Task<List<Match>> ProcessMatches(IEnumerable<XmlMatch> xmlMatches, int eventId)
+		private List<Match> ProcessMatches(IEnumerable<XmlMatch> xmlMatches, int eventId)
 		{
-			List<Match> addedMatches = new();
+			List<Match> matches = new();
 
 			foreach (XmlMatch xmlMatch in xmlMatches)
 			{
@@ -104,25 +108,28 @@ namespace UltraPlaySample.Services.Implementations
 
 				if (match is null)
 				{
-					match = new(xmlMatch.Id, xmlMatch.Name, xmlMatch.StartDate, xmlMatch.MatchType, eventId, await ProcessBets(xmlMatch.Bets, xmlMatch.Id));
+					match = new(xmlMatch.Id, xmlMatch.Name, xmlMatch.StartDate, xmlMatch.MatchType, eventId, ProcessBets(xmlMatch.Bets, xmlMatch.Id));
 					_dbContext.Matches.Add(match);
-					addedMatches.Add(match);
+					matches.Add(match);
 					continue;
 				}
 
 				match.Id = xmlMatch.Id;
 				match.Name = xmlMatch.Name;
 				match.EventId = eventId;
-				match.Bets = await ProcessBets(xmlMatch.Bets, xmlMatch.Id);
-				addedMatches.Add(match);
+				match.Bets = ProcessBets(xmlMatch.Bets, xmlMatch.Id);
+				matches.Add(match);
+				
+				WebSocketHelper.eventsQueue.Enqueue(new MatchUpdateMessage(
+					new(xmlMatch.Id, xmlMatch.Name, xmlMatch.StartDate, xmlMatch.MatchType)));
 			}
 
-			return addedMatches;
+			return matches;
 		}
 
-		private async Task<List<Bet>> ProcessBets(ICollection<XmlBet> xmlBets, int matchId)
+		private List<Bet> ProcessBets(ICollection<XmlBet> xmlBets, int matchId)
 		{
-			List<Bet> addedBets = new();
+			List<Bet> bets = new();
 
 			foreach (XmlBet xmlBet in xmlBets)
 			{
@@ -130,9 +137,9 @@ namespace UltraPlaySample.Services.Implementations
 
 				if (bet is null)
 				{
-					bet = new(xmlBet.Id, xmlBet.Name, xmlBet.IsLive, matchId, await ProcessOdds(xmlBet.Odds, xmlBet.Id));
+					bet = new(xmlBet.Id, xmlBet.Name, xmlBet.IsLive, matchId, ProcessOdds(xmlBet.Odds, xmlBet.Id));
 					_dbContext.Bets.Add(bet);
-					addedBets.Add(bet);
+					bets.Add(bet);
 					continue;
 				}
 
@@ -140,16 +147,19 @@ namespace UltraPlaySample.Services.Implementations
 				bet.Name = xmlBet.Name;
 				bet.IsLive = xmlBet.IsLive;
 				bet.MatchId = matchId;
-				bet.Odds = await ProcessOdds(xmlBet.Odds, xmlBet.Id);
-				addedBets.Add(bet);
+				bet.Odds = ProcessOdds(xmlBet.Odds, xmlBet.Id);
+				bets.Add(bet);
+				
+				WebSocketHelper.eventsQueue.Enqueue(new BetUpdateMessage(
+					new(xmlBet.Id, xmlBet.Name, xmlBet.IsLive)));
 			}
 
-			return addedBets;
+			return bets;
 		}
 
-		private async Task<List<Odd>> ProcessOdds(IEnumerable<XmlOdd> xmlOdds, int betId)
+		private List<Odd> ProcessOdds(IEnumerable<XmlOdd> xmlOdds, int betId)
 		{
-			List<Odd> processedOdds = new();
+			List<Odd> odds = new();
 
 			foreach (XmlOdd xmlOdd in xmlOdds)
 			{
@@ -159,7 +169,7 @@ namespace UltraPlaySample.Services.Implementations
 				{
 					odd = new(xmlOdd.Id, xmlOdd.Name, xmlOdd.Value, xmlOdd.SpecialBetValue, betId);
 					_dbContext.Odds.Add(odd);
-					processedOdds.Add(odd);
+					odds.Add(odd);
 					continue;
 				}
 
@@ -168,16 +178,19 @@ namespace UltraPlaySample.Services.Implementations
 				odd.Value = xmlOdd.Value;
 				odd.SpecialBetValue = xmlOdd.SpecialBetValue;
 				odd.BetId = betId;
-				processedOdds.Add(odd);
+				odds.Add(odd);
+
+				WebSocketHelper.eventsQueue.Enqueue(new OddUpdateMessage(
+					new(xmlOdd.Id, xmlOdd.Name, xmlOdd.Value, odd.SpecialBetValue)));
 			}
 
-			return processedOdds;
+			return odds;
 		}
 
 		public async Task ProcessDataAndSaveToDatabase(XmlSport[] xmlSports)
 		{
-			// TODO: Don't store the following tables in memory
-			_dbSports = await _dbContext.Sports.ToArrayAsync();
+			// TODO: Don't store the following tables in-memory. (Maybe, get the id's of each separate item and filter by them?)
+			_dbSports = await _dbContext.Sports.Where(s => xmlSports.Select(x => x.Id).Contains(s.Id)).ToArrayAsync();
 			_dbEvents = await _dbContext.Events.ToArrayAsync();
 			_dbMatches = await _dbContext.Matches.ToArrayAsync();
 			_dbBets = await _dbContext.Bets.ToArrayAsync();
@@ -186,7 +199,7 @@ namespace UltraPlaySample.Services.Implementations
 			try
 			{
 				foreach (XmlSport xmlSport in xmlSports)
-					await ProcessSport(xmlSport);
+					ProcessSport(xmlSport);
 
 				await _dbContext.SaveChangesAsync();
 			}
